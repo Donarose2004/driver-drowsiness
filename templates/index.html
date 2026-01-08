@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver Drowsiness Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Your safety is our Concern!!</h1>
+        </header>
+        <main>
+            <div class="video-container">
+                <h2>Live Feed</h2>
+                <img id="video-stream" src="{{ url_for('video_feed') }}" width="100%">
+            </div>
+            <div class="dashboard">
+                <h2>Real-Time Stats</h2>
+                <div class="stat-card">
+                    <h3>Eye Status</h3>
+                    <p id="eye-status">Initializing...</p>
+                </div>
+            <div class="stat-card">
+    <h3>Total Yawns Detected</h3>
+    <p id="yawn-count">0</p>
+</div>
+                <div class="stat-card">
+                    <h3>Drowsiness Level</h3>
+                    <div class="progress-bar-container">
+                        <div id="drowsiness-progress" class="progress-bar"></div>
+                    </div>
+                </div>
+                <div class="tips-card">
+                    <h3>Safety Tips 💡</h3>
+                    <ul>
+                        <li>Take a 15-20 minute nap if feeling tired.</li>
+                        <li>Drink a cup of coffee or a caffeinated beverage.</li>
+                        <li>Open the windows for fresh air.</li>
+                        <li>Stop driving and rest every 2 hours.</li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="alert-overlay">
+        <div class="alert-box">
+            <h1>DROWSINESS ALERT!</h1>
+            <p>Please confirm you are awake and focused.</p>
+            <button id="stop-alert-btn">I'm Awake!</button>
+        </div>
+    </div>
+
+    <audio id="beep-sound" src="{{ url_for('static', filename='beep.wav') }}" loop></audio>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', (event) => {
+            const socket = io();
+
+            const eyeStatusEl = document.getElementById('eye-status');
+            const yawnCountEl = document.getElementById('yawn-count');
+            const drowsinessProgressEl = document.getElementById('drowsiness-progress');
+            const alertOverlay = document.getElementById('alert-overlay');
+            const stopAlertBtn = document.getElementById('stop-alert-btn');
+            const beepSound = document.getElementById('beep-sound');
+
+            socket.on('connect', () => {
+                console.log('Connected to server!');
+            });
+
+            // Listen for status updates from the server
+            socket.on('update_status', (data) => {
+                eyeStatusEl.textContent = data.eye_status;
+                yawnCountEl.textContent = data.yawn_count;
+                drowsinessProgressEl.style.width = data.drowsy_level + '%';
+
+                // Update color based on status
+                if (data.eye_status === 'Closed' || data.eye_status === 'Not Detected') {
+                    eyeStatusEl.style.color = '#ff6b6b';
+                } else {
+                    eyeStatusEl.style.color = '#6bff95';
+                }
+            });
+            
+            // Listen for alert signals from the server
+            socket.on('drowsiness_alert', (data) => {
+                if (data.alert) {
+                    alertOverlay.style.display = 'flex';
+                    beepSound.play();
+                }
+            });
+
+            // Handle the "I'm Awake!" button click
+            stopAlertBtn.addEventListener('click', () => {
+                alertOverlay.style.display = 'none';
+                beepSound.pause();
+                beepSound.currentTime = 0; // Rewind to the start
+                
+                // Tell the server the driver has acknowledged the alert
+                socket.emit('stop_alert_from_client');
+            });
+        });
+    </script>
+</body>
+</html>
